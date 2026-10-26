@@ -1,0 +1,233 @@
+{
+  "name": "Company Policy Slack Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": [
+          "app_mention"
+        ],
+        "watchWorkspace": true,
+        "options": {}
+      },
+      "id": "0bf39902-8306-4955-9a03-1e90bc4f80f5",
+      "name": "Slack Mention",
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        112
+      ],
+      "webhookId": "6a045e71-be2f-4513-8d4e-f810417362c0",
+      "credentials": {
+        "slackApi": {
+          "id": "bfIG4WZMwuUQ081k",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "You are a helpful company policy assistant answering questions in Slack. The knowledge base lives in ClickUp Docs. The ClickUp workspace ID is 9009111571. The company policies live in one ClickUp Doc with ID 8cfr8gk-16914 (its pages include 8cfr8gk-13494). To answer, call get_doc_pages with doc_id 8cfr8gk-16914 to read all of its pages, and answer from them. Only call list_policy_docs if that Doc cannot be read. Answer only from the retrieved content, concisely, in Slack mrkdwn, and mention the name of the Doc you used. If the knowledge base does not contain the answer, say so and suggest contacting HR or the policy owner. Never invent policies."
+        }
+      },
+      "id": "79798531-5a80-4e29-9384-45d63c7fdc54",
+      "name": "Policy Assistant",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        320,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-5-5",
+          "cachedResultName": "Claude Sonnet 5.5"
+        },
+        "options": {}
+      },
+      "id": "638fc0aa-53b9-49fc-b0e1-6441cd662949",
+      "name": "Claude",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        224,
+        336
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": null,
+          "name": "Gateway credits",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v3/workspaces/9009111571/docs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "clickUpApi",
+        "options": {}
+      },
+      "id": "ec27d5ec-4029-4122-9430-6ed9f868f3cc",
+      "name": "list_policy_docs",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        352,
+        336
+      ],
+      "credentials": {
+        "clickUpApi": {
+          "id": "wx05opcOAsNAFdvq",
+          "name": "ClickUp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v3/workspaces/9009111571/docs/{{ $fromAI(\"doc_id\", \"ID of the ClickUp Doc to read\", \"string\") }}/pages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "clickUpApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "max_page_depth",
+              "value": "-1"
+            },
+            {
+              "name": "content_format",
+              "value": "text/md"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4622607b-fc12-45e9-a5d2-6346c23c5e30",
+      "name": "get_doc_pages",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        480,
+        336
+      ],
+      "credentials": {
+        "clickUpApi": {
+          "id": "wx05opcOAsNAFdvq",
+          "name": "ClickUp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $(\"Slack Mention\").item.json.channel }}"
+        },
+        "text": "={{ $json.output }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $(\"Slack Mention\").item.json.ts }}"
+            }
+          }
+        }
+      },
+      "id": "83ae76e9-2ab0-4674-93fa-4d0a0b4e7a0a",
+      "name": "Reply in Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        688,
+        112
+      ],
+      "webhookId": "81e492b4-c6d9-4a8f-b546-db7563f143ef",
+      "credentials": {
+        "slackApi": {
+          "id": "bfIG4WZMwuUQ081k",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Slack Mention": {
+      "main": [
+        [
+          {
+            "node": "Policy Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Policy Assistant": {
+      "main": [
+        [
+          {
+            "node": "Reply in Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Policy Assistant",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "list_policy_docs": {
+      "ai_tool": [
+        [
+          {
+            "node": "Policy Assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_doc_pages": {
+      "ai_tool": [
+        [
+          {
+            "node": "Policy Assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bb830a0e-2fd5-4e61-9bca-5f9b1595efc7",
+  "meta": {
+    "instanceId": "8c901c8de742f2a9aa97033a7ea2288f845de107112a9bc4a1b35374104c21f5"
+  },
+  "nodeGroups": [],
+  "id": "JmfmqPpvGypNAV4d",
+  "tags": []
+}
